@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "hx711.h": "c",
+        "screen.h": "c",
+        "tmc5130.h": "c",
+        "apply.h": "c",
+        "delay.h": "c",
+        "heat.h": "c",
+        "pid.h": "c",
+        "tmp114.h": "c"
+    }
+}
