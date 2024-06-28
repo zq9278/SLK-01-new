@@ -15,7 +15,8 @@
             "group": "build",
             "args": [
                 "-f",
-            "interface/stlink.cfg",
+            //"interface/stlink.cfg",
+            "interface/cmsis-dap.cfg",
              "-f",
              "target/stm32g0x.cfg",
         "-c",

@@ -52,7 +52,7 @@
 /* USER CODE BEGIN PV */
 uint8_t SW_CNT_Flag;
 u16 Tim6Cnt, Tim7Cnt;
-u8 Flag_3200ms, Flag_800ms, Flag_600ms, Flag_400ms, Flag_200ms, Flag_100ms;
+u8 Flag_3200ms, Flag_800ms, Flag_600ms, Flag_400ms, Flag_200ms, Flag_100ms, Flag_1s, Flag_2s,Flag_3s;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -77,12 +77,12 @@ extern I2C_HandleTypeDef hi2c2;
 extern DMA_HandleTypeDef hdma_tim16_ch1;
 extern TIM_HandleTypeDef htim6;
 extern TIM_HandleTypeDef htim7;
-extern DMA_HandleTypeDef hdma_usart1_tx;
+extern DMA_HandleTypeDef hdma_usart1_rx;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
-extern s32 ForceRawSet;    // 屏幕设定的�?
-extern s32 ForceRawSetAct; // 实时设定�?
-extern s32 ForceRawActual; // 应变片实际�?
+extern s32 ForceRawSet;    // 灞忓箷璁惧畾鐨勫??
+extern s32 ForceRawSetAct; // 瀹炴椂璁惧畾鍊?
+extern s32 ForceRawActual; // 搴斿彉鐗囧疄闄呭??
 extern u8 WorkMode;
 
 extern u8 PowerState;
@@ -97,9 +97,9 @@ extern u8 LEDState;
 extern u32 RGB_DATA;
 extern u32 MotorSpeed;
 
-extern u8 USART1_RX_STA; // 接收状态标�?
+extern u8 USART1_RX_STA; // 鎺ユ敹鐘舵?佹爣璁?
 extern u8 USART1_RX_BUF[];
-u8 frame_started = 0; // �?否�?�测到帧头
+u8 frame_started = 0; // 鏄?鍚︽??娴嬪埌甯уご
 u8 rx_index      = 0;
 u8 last_byte     = 0;
 
@@ -108,7 +108,7 @@ extern float EyeTmp;
 
 extern u8 HeatPWMVal;
 
-extern PID_typedef HeatPID;
+extern PID_TypeDef HeatPID;
 extern TIM_HandleTypeDef htim16;
 /* USER CODE END EV */
 
@@ -243,7 +243,7 @@ void DMA1_Ch4_7_DMAMUX1_OVR_IRQHandler(void)
     /* USER CODE END DMA1_Ch4_7_DMAMUX1_OVR_IRQn 0 */
     HAL_DMA_IRQHandler(&hdma_i2c2_tx);
     HAL_DMA_IRQHandler(&hdma_adc1);
-    HAL_DMA_IRQHandler(&hdma_usart1_tx);
+    HAL_DMA_IRQHandler(&hdma_usart1_rx);
     HAL_DMA_IRQHandler(&hdma_tim16_ch1);
     /* USER CODE BEGIN DMA1_Ch4_7_DMAMUX1_OVR_IRQn 1 */
 
@@ -333,96 +333,9 @@ void I2C2_IRQHandler(void)
  */
 void USART1_IRQHandler(void)
 {
-    /* USER CODE BEGIN USART1_IRQn 0 */
-    // u8 Res;  // 定义一�?8位的变量Res用于存储接收到的数据
 
-    // // 检查是否收到数�?（接收非空标志位�?
-    // if((__HAL_UART_GET_FLAG(&huart1,UART_FLAG_RXNE)!=RESET))
-    // {
-    //     // 从UART接收一�?字节的数�?到Res，并设置超时时间�?1000ms
-    //     HAL_UART_Receive(&huart1,&Res,1,1000);
-
-    //     // 检查接收状态，判断�?否接收未完成
-    //     if((USART1_RX_STA&0x8000)==0)
-    //     {
-    //         // 如果接收到了0x0d，即回车�?
-    //         if(USART1_RX_STA&0x4000)
-    //         {
-    //             if(USART1_RX_STA&0x2000)
-    //             {
-    //                 // 简化的代码，具体的�?注释掉的代码块在这里处理特定的情�?
-
-    //                     // 将接收到的数�?存储到USART1_RX_BUF�?，并更新接收状�?
-    //                     USART1_RX_BUF[USART1_RX_STA&0X1FFF]=Res ;
-    //                     USART1_RX_STA++;
-    //                     // 如果接收到特定长度的数据，则设置接收完成标志
-    //                     if((USART1_RX_STA & 0x1fff)==0x07)
-    //                     {
-    //                         USART1_RX_STA|=0x8000;
-    //                     }
-
-    //             }
-    //             // 特定的情况�?�理
-    //             if(Res==0xa5 && USART1_RX_STA==0x4000)
-    //             {
-    //                 USART1_RX_STA|=0x2000;
-    //             }
-    //         }
-    //         // 如果接收到特定的起�?�字�?0x5a，并且当前状态为0
-    //         if(Res==0x5a && USART1_RX_STA==0)
-    //         {
-    //             USART1_RX_STA=0x4000;
-    //         }
-    //     }
-    // }
-
-    if (__HAL_UART_GET_FLAG(&huart1, UART_FLAG_RXNE)) // 非空�?�?
-    {
-        uint8_t received_data = (uint8_t)(huart1.Instance->RDR & 0xFF); // 取出缓冲区的字�??
-        if (last_byte == 0x5A && received_data == 0xA5) {
-            frame_started    = 1; // �???测到帧头时�?�置�?--标志�???
-            USART1_RX_BUF[0] = 0x5A;
-            rx_index         = 1; // 重置索引
-        }
-        last_byte = received_data; // 更新上一�?字�??
-        if (frame_started) {
-            USART1_RX_BUF[rx_index++] = received_data;
-        }
-    }
-    if (__HAL_UART_GET_FLAG(&huart1, UART_FLAG_IDLE)) // 空闲�?�?
-    {
-        __HAL_UART_CLEAR_IDLEFLAG(&huart1);
-        // HAL_UART_Transmit(&huart1, (uint8_t *)&rx_buffer, (size_t)rx_index, 0xFFFF); // 验证打印数据
-        USART1_RX_STA = 1;
-        // rx_index = 0;                                            //
-        frame_started = 0; // 标�?�帧的结�?
-    }
-    /* USER CODE END USART1_IRQn 0 */
     HAL_UART_IRQHandler(&huart1);
-    /* USER CODE BEGIN USART1_IRQn 1 */
-
-    // 检查并清除溢出错�??标志�?
-    if ((__HAL_UART_GET_FLAG(&huart1, UART_FLAG_ORE) != RESET)) {
-        __HAL_UART_CLEAR_OREFLAG(&huart1);
-    }
-    // 检查并清除帧错�?标志�?
-    if ((__HAL_UART_GET_FLAG(&huart1, UART_FLAG_FE) != RESET)) {
-        __HAL_UART_CLEAR_FEFLAG(&huart1);
-    }
-
-    //					if((USART1_RX_STA & 0x3fff)==0x05)
-    //					{
-    //						if(Res==0xaa)
-    //						{
-    //							USART1_RX_STA|=0x8000;
-    //						}
-    //						else
-    //						{
-    //							USART1_RX_STA=0;
-    //						}
-    //					}
-    //					else
-    /* USER CODE END USART1_IRQn 1 */
+ 
 }
 
 /* USER CODE BEGIN 1 */
@@ -434,118 +347,48 @@ void HAL_GPIO_EXTI_Falling_Callback(uint16_t GPIO_Pin)
 /**/
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if (htim == &htim6) // 50ms定时�?
+    if (htim == &htim6) // 500ms定时器
     {
         Tim6Cnt++;
-        switch (MotorState) {
-                // �?一阶�?�，电机�?动到挤压力到1/2为�??
-                //  case 0:
-                //  	ForceRawSetAct=ForceRawSet>>1;// /2
-                //  	if(MotorCompareState==0 && Tim6Cnt>10)
-                //  	{
-                //  		MotorSpeed=0x6000;
-                //  		MotorState=1;
-                //  		Tim6Cnt=0;
-                //  	}
-                //  	break;
-                // �?二阶段，等待1s
-
-            case 0:
-                if (Tim6Cnt >= 0) {
-                    // TMC5130_Write(0xa7, MotorSpeed);
-                    // TMC5130_Write(0xa0, 1);
-                    ForceRawSetAct = ForceRawSet;
-                    MotorState     = 1;
-                    Tim6Cnt        = 0;
-                }
-                break;
-            // �?三阶段，上升到�?��?�挤压力
-            case 1:
-                if ((MotorCompareState==0)&&(Tim6Cnt > 40)) // MotorCompareState==0 &&
-                {
-                    MotorState = 2;
-                    ForceRawSetAct = 0;
-                    // TMC5130_Write(0xa7, MotorSpeed);
-                    // TMC5130_Write(0xa0, 2);
-                    
-                    Tim6Cnt = 0;
-                }
-                break;
-            // �?四阶段，预�?�挤压力等待2s
-            case 2:
-                if (Tim6Cnt >= 20) {
-                    // ForceRawSetAct=ForceRawSet>>1;
-                    MotorState = 0;
-                    Tim6Cnt    = 0;
-                }
-                break;
-                // 	case 3:
-                // if(Tim6Cnt>=40)
-                // {
-                // 	ForceRawSetAct=ForceRawSet>>1;
-                // 	MotorState=4;
-                // 	Tim6Cnt=0;
-                // }
-                // break;
-            // //�?五阶段，下降到挤压力一�?
-            // case 4:
-            // 	if(MotorCompareState==0 && Tim6Cnt>5)
-            // 	{
-            // 		MotorState=5;
-            // 		Tim6Cnt=0;
-            // 	}
-            // 	break;
-            // //�?�?阶�?�，挤压力的一半等�?1s
-            // case 5:
-            // 	if(Tim6Cnt>=20)
-            // 	{
-            // 		MotorState=6;
-            // 		Tim6Cnt=0;
-            // 	}
-            // 	break;
-            // //�?七阶段，挤压力从一半下降到0
-            // case 6:
-            // 	ForceRawSetAct=(ForceRawSet>>1)-(ForceRawSet>>1)/20*Tim6Cnt;
-            // 	if(Tim6Cnt>=20)
-            // 	{
-            // 		ForceRawSetAct=0;
-            // 		MotorState=7;
-            // 		Tim6Cnt=0;
-            // 	}
-            // 	break;
-            // //�?�?阶�?�，挤压力在0等待1s
-            // case 7:
-            // 	if(Tim6Cnt>=20)
-            // 	{
-            // 		MotorState=8;
-            // 		Tim6Cnt=0;
-            // 	}
-            // 	break;
-            // //�?九阶段，挤压力从0上升到一�?
-            // case 8:
-            // 	ForceRawSetAct=(ForceRawSet>>1)/20*Tim6Cnt;
-            // 	if(Tim6Cnt>=20)
-            // 	{
-            // 		ForceRawSetAct=ForceRawSet>>1;
-            // 		MotorState=1;
-            // 		Tim6Cnt=0;
-            // 	}
-            default:
-                break;
+HAL_GPIO_WritePin(GPIOC, GPIO_PIN_6, GPIO_PIN_RESET); 
+        // 检查计数器以实现不同的定时事件
+        if (Tim6Cnt % 1 == 0) {
+            // 每1秒执行一次
+            // 1秒事件代码
+            //Flag_500ms = 1;
+        }
+        if (Tim6Cnt % 3 == 0) {
+            // 每1秒执行一次
+            // 1秒事件代码
+            Flag_1s = 1;
+             HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET); 
+        }
+        if (Tim6Cnt % 4 == 0) {
+            // 每2秒执行一次
+            // 2秒事件代码
+            Flag_2s = 1;
+            
+        }
+        if (Tim6Cnt % 6 == 0) {
+            // 每3秒执行一次
+            // 3秒事件代码
+            // 为了防止计数器溢出，每6次复位一次
+             Flag_3s = 1;
+            Tim6Cnt = 0;
         }
     }
+
     if (htim == &htim7) {
         Tim7Cnt++;
         if ((Tim7Cnt & 0x3f) == 0x3f) {
             Flag_3200ms = 1;
         }
         if ((Tim7Cnt & 0x0f) == 0x0f) {
-            LED1Toggle;
+            //LED1Toggle;//LED1
             Flag_800ms = 1;
             // Flag_100ms=1;
-
         }
-        if ((Tim7Cnt & 0x0b) == 0x0b) // 600ms 标志�?
+        if ((Tim7Cnt & 0x0b) == 0x0b) // 600ms 鏍囧織浣?
         {
             Flag_600ms = 1;
         }
@@ -557,15 +400,16 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         }
         if ((Tim7Cnt & 0x01) == 0x01) {
             Flag_100ms = 1;
-           // if ((WorkMode & 0x05) == 0x05) {
-            if  ((WorkMode == 5) || (WorkMode == 1)|| (WorkMode == 7) || (WorkMode == 3)) {
+            // if ((WorkMode & 0x05) == 0x05) {
+            if ((WorkMode == 5) || (WorkMode == 1) || (WorkMode == 7) || (WorkMode == 3)) {
                 TMP114_Read(0x00, EyeTmpRaw);
             }
-            
-           // if ((WorkMode & 0x05) == 0x05) {
-            if ((WorkMode == 5) || (WorkMode == 1)|| (WorkMode == 7) || (WorkMode == 3)){
-                EyeTmp     = TmpRaw2Ture(EyeTmpRaw);
-                HeatPWMVal = PID_realize(&HeatPID, EyeTmp);
+
+            // if ((WorkMode & 0x05) == 0x05) {
+            if ((WorkMode == 5) || (WorkMode == 1) || (WorkMode == 7) || (WorkMode == 3)) {
+                EyeTmp = TmpRaw2Ture(EyeTmpRaw);
+                // HeatPWMVal = PID_realize(&HeatPID, EyeTmp);
+                HeatPWMVal = PID_Compute(&HeatPID, EyeTmp, HeatPID.setpoint);
                 HeatPWMSet(HeatPWMVal);
             }
         }

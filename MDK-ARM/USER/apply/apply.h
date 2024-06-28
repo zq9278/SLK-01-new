@@ -9,6 +9,7 @@ void PowerStateUpdate(void);
 void UART1_CMDHandler(PCTRL_MSG msg);
 void BATCheckDIS(void);
 void SystemPowerDown(void);
+void MOTOR_Process(void);
 	
 #endif
 

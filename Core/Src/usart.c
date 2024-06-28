@@ -21,11 +21,13 @@
 #include "usart.h"
 
 /* USER CODE BEGIN 0 */
-
+#include "screen.h"
+extern  uart_data uart_RX_data;
+extern  ring_buffer_t uart_rx_ring_buffer;
 /* USER CODE END 0 */
 
 UART_HandleTypeDef huart1;
-DMA_HandleTypeDef hdma_usart1_tx;
+DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USART1 init function */
 
@@ -67,9 +69,9 @@ void MX_USART1_UART_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN USART1_Init 2 */
-	__HAL_UART_ENABLE_IT(&huart1,UART_IT_RXNE);//膰聨慕暮聫聴莽藕聯暮聠藳暮聦艧茅聺聻莽艩?
+	//__HAL_UART_ENABLE_IT(&huart1,UART_IT_RXNE);//膰聨慕暮聫聴莽藕聯暮聠藳暮聦艧茅聺聻莽艩?
 	//__HAL_UART_CLEAR_FLAG(&huart1,UART_FLAG_TC);//膰赂聟茅聶陇盲赂颅膰聳颅暮沤聦膰聢聬膰聽聡暮偶聴盲藵?
-  __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);//寮垮惎绌洪棽涓柨
+ // __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);//寮垮惎绌洪棽涓?鏂?
   /* USER CODE END USART1_Init 2 */
 
 }
@@ -110,22 +112,22 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
     /* USART1 DMA Init */
-    /* USART1_TX Init */
-    hdma_usart1_tx.Instance = DMA1_Channel6;
-    hdma_usart1_tx.Init.Request = DMA_REQUEST_USART1_TX;
-    hdma_usart1_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
-    hdma_usart1_tx.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_usart1_tx.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_usart1_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-    hdma_usart1_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-    hdma_usart1_tx.Init.Mode = DMA_NORMAL;
-    hdma_usart1_tx.Init.Priority = DMA_PRIORITY_LOW;
-    if (HAL_DMA_Init(&hdma_usart1_tx) != HAL_OK)
+    /* USART1_RX Init */
+    hdma_usart1_rx.Instance = DMA1_Channel6;
+    hdma_usart1_rx.Init.Request = DMA_REQUEST_USART1_RX;
+    hdma_usart1_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    hdma_usart1_rx.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_usart1_rx.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_usart1_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    hdma_usart1_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_usart1_rx.Init.Mode = DMA_NORMAL;
+    hdma_usart1_rx.Init.Priority = DMA_PRIORITY_LOW;
+    if (HAL_DMA_Init(&hdma_usart1_rx) != HAL_OK)
     {
       Error_Handler();
     }
 
-    __HAL_LINKDMA(uartHandle,hdmatx,hdma_usart1_tx);
+    __HAL_LINKDMA(uartHandle,hdmarx,hdma_usart1_rx);
 
     /* USART1 interrupt Init */
     HAL_NVIC_SetPriority(USART1_IRQn, 0, 0);
@@ -154,7 +156,7 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
     HAL_GPIO_DeInit(GPIOB, GPIO_PIN_6|GPIO_PIN_7);
 
     /* USART1 DMA DeInit */
-    HAL_DMA_DeInit(uartHandle->hdmatx);
+    HAL_DMA_DeInit(uartHandle->hdmarx);
 
     /* USART1 interrupt Deinit */
     HAL_NVIC_DisableIRQ(USART1_IRQn);
@@ -165,5 +167,38 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 }
 
 /* USER CODE BEGIN 1 */
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+    if (huart->Instance == USART1)
+    {
+    if (ring_buffer_put(&uart_rx_ring_buffer,&uart_RX_data) != 0) {
+            // 缓冲区已满，处理溢出情况
+        }
+          // 如果??要，可以重新启动 DMA 接收
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart_RX_data.buffer, sizeof(uart_RX_data.buffer));
+    }
+}
 
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+    if (huart->Instance == USART1) {
+         uint32_t error = HAL_UART_GetError(huart);
+        
+  if (error & HAL_UART_ERROR_ORE) {
+            // 处理溢出错误
+        } else if (error & HAL_UART_ERROR_FE) {
+            // 处理帧错误
+					//int a=1;
+        } else if (error & HAL_UART_ERROR_NE) {
+            // 处理噪声错误
+						//int a=1;
+        } else if (error & HAL_UART_ERROR_DMA) {
+            // 处理DMA错误
+						//int a=1;
+        }
+
+        // 重置 UART，准备下一次接收（可选）
+        HAL_UART_Abort(huart);
+       HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart_RX_data.buffer, sizeof(uart_RX_data.buffer));
+    }
+}
 /* USER CODE END 1 */

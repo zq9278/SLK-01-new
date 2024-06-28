@@ -7,6 +7,11 @@
         "delay.h": "c",
         "heat.h": "c",
         "pid.h": "c",
-        "tmp114.h": "c"
-    }
+        "tmp114.h": "c",
+        "usart.h": "c",
+        "bq27441.h": "c",
+        "math.h": "c",
+        "limits": "c"
+    },
+    "cortex-debug.variableUseNaturalFormat": true
 }

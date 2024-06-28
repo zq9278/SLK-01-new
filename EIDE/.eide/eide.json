@@ -2,9 +2,7 @@
   "name": "SLK-01_V1_0",
   "type": "ARM",
   "dependenceList": [],
-  "srcDirs": [
-    ".eide/deps"
-  ],
+  "srcDirs": [],
   "virtualFolder": {
     "name": "<virtual_root>",
     "files": [],
@@ -307,11 +305,9 @@
           "../MDK-ARM/USER/IIC",
           "../MDK-ARM/USER/ws2812b",
           ".cmsis/include",
-          "../MDK-ARM/RTE/_SLK-01_V1_0",
-          ".eide/deps"
+          "../MDK-ARM/RTE/_SLK-01_V1_0"
         ],
         "libList": [],
-        "sourceDirList": [],
         "defineList": [
           "USE_HAL_DRIVER",
           "STM32G070xx"
@@ -319,5 +315,5 @@
       }
     }
   },
-  "version": "3.3"
+  "version": "3.4"
 }

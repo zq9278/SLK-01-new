@@ -1,25 +1,28 @@
-#ifndef _PID_H
-#define _PID_H
-#include <sys.h>	  
+// pid.h
 
+#ifndef PID_H
+#define PID_H
 
-#define Limit(x,min,max) (x)=(((x)<=(min))?(min):(((x)>=(max))?(max):(x)))
-
-typedef struct
-{
-    float target_val;
-    float actual_val;
-    float err;
-    float err_last; 
-    float Kp,Ki,Kd;
+typedef struct {
+    float Kp;
+    float Ki;
+    float Kd;
+    float previous_error;
     float integral;
-    float maxIntegral;
-    float maxOutput;
-}PID_typedef;
+    float integral_max;   // 积分限幅值
+    float integral_min;   // 积分下限幅值
+    float output_max;     // 输出限幅值
+    float output_min;     // 输出下限幅值
+    float setpoint;       // 设定值
+} PID_TypeDef;
 
-void HeatPIDInit(void);
-u8 PID_realize(PID_typedef *pid,float temp_val) ;
+// 初始化PID控制器
+void PID_Init(PID_TypeDef *pid, float Kp, float Ki, float Kd, float integral_max, float integral_min, float output_max, float output_min, float setpoint);
 
+// 计算PID控制输出
+float PID_Compute(PID_TypeDef *pid, float measured_value, float setpoint);
 
-#endif
+// 限幅宏
+#define Limit(x, min, max) ((x) = (((x) <= (min)) ? (min) : (((x) >= (max)) ? (max) : (x))))
 
+#endif // PID_H

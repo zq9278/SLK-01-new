@@ -1,9 +1,19 @@
+/*
+ * @Author: zhangqi zq9278@gmail.com
+ * @Date: 2024-06-15 13:31:10
+ * @LastEditors: zhangqi zq9278@gmail.com
+ * @LastEditTime: 2024-06-20 15:14:23
+ * @FilePath: \EIDEd:\Project\SLK01\Software\SLK-01-new\MDK-ARM\USER\hx711\hx711.c
+ * @Description: 
+ * 
+ * Copyright (c) 2024 by ${git_name_email}, All Rights Reserved. 
+ */
 #include "hx711.h"
 #include "main.h"
 
 extern s32 ForceRawOffset;
 
-/* HX711 初始化 */
+/* HX711 初�?�化 */
 void HX711_Init(void)
 {
 	ForceRawOffset=HX711_Read();
@@ -16,14 +26,14 @@ int32_t HX711_Read(void)
     int32_t data = 0;
     uint8_t i;
 
-    /* 等待数据引脚为低 ,即A/D转换器准备好*/
-    while (HAL_GPIO_ReadPin(HX711_DOUT_GPIO_Port, HX711_DOUT_Pin) == GPIO_PIN_SET)//当数据位是高电平时，一直进入循环，直到数据为变成低电平
+    /* 等待数据引脚为低 ,即A/D�?换器准�?�好*/
+    while (HAL_GPIO_ReadPin(HX711_DOUT_GPIO_Port, HX711_DOUT_Pin) == GPIO_PIN_SET)//当数�?位是高电平时，一直进入循�?，直到数�?为变成低电平
     {;}
 
-    /* 读取24位数据 */
+    /* 读取24位数�? */
     for (i = 0; i < 24; i++)
     {
-        /* 时钟引脚置高 */
+        /* 时钟引脚�?�? */
         HAL_GPIO_WritePin(HX711_SCK_GPIO_Port, HX711_SCK_Pin, GPIO_PIN_SET);
        data <<= 1;
 
@@ -32,10 +42,10 @@ int32_t HX711_Read(void)
 				__nop();
 				__nop();
 				__nop();
-        /* 时钟引脚置低 */
+        /* 时钟引脚�?�? */
         HAL_GPIO_WritePin(HX711_SCK_GPIO_Port, HX711_SCK_Pin, GPIO_PIN_RESET);
 
-        /* 检查数据引脚的值 */
+        /* 检查数�?引脚的�? */
         if (HAL_GPIO_ReadPin(HX711_DOUT_GPIO_Port, HX711_DOUT_Pin) == GPIO_PIN_SET)
         {
             data++;
@@ -48,15 +58,15 @@ int32_t HX711_Read(void)
 				__nop();
     }
 
-    /* 时钟引脚置高 */
+    /* 时钟引脚�?�? */
     HAL_GPIO_WritePin(HX711_SCK_GPIO_Port, HX711_SCK_Pin, GPIO_PIN_SET);
 //    delay_us(1);
 		__nop();
 		__nop();
 		__nop();
-    /* 时钟引脚置低 */
+    /* 时钟引脚�?�? */
     HAL_GPIO_WritePin(HX711_SCK_GPIO_Port, HX711_SCK_Pin, GPIO_PIN_RESET);
-    //delay_us(1);    /* 符号位扩展 */
+    //delay_us(1);    /* 符号位扩�? */
     if (data & 0x00800000)
     {
         data |= 0xFF000000;
@@ -79,7 +89,7 @@ int32_t HX711_AVG(u8 times)
 	return AVGData;
 }
 
-/* 获取力（牛顿） */
+/* 获取力（牛顿�? */
 float HX711_GetForce(void)
 {
     int32_t rawData = HX711_Read();

@@ -11,14 +11,14 @@
 #define HX711_CLK_Pin           GPIO_PIN_10
 
 /* 数据缩放因子，根据负载传感器的参数和电压参考调整
- * 变大范围变小*/
+ * 数据缩放因子变小,读数变大*/
 #define HX711_SCALE_FACTOR     84534.474f
 #define HX711_SCALE_FACTOR_10     8453.4474f
 #define HX711_SCALE_FACTOR_100     790.34474f //150mmhg
-//#define HX711_SCALE_FACTOR_100     802.34474f //200mmhg
+//#define HX711_SCALE_FACTOR_100     800.34474f //200mmhg
 //#define HX711_SCALE_FACTOR_100     804.34474f //250mmhg
 //#define HX711_SCALE_FACTOR_100     805.34474f //300mmhg
-//#define HX711_SCALE_FACTOR_100     808.34474f //350mmhg
+//#define HX711_SCALE_FACTOR_100     800.34474f //350mmhg
 
 //more and more
 

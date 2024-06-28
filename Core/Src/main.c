@@ -66,24 +66,28 @@ u8 Flag_100ms_Toggle;
 extern u32 RGB_DATA;
 
 extern s32 ForceRawOffset;
-extern s32 ForceRawActual; // 应变片实际�?
-extern s32 ForceRawSetAct;
+extern s32 ForceRawActual;
+extern s32 ForceRawSet;
 extern float EyeTmp;
 extern u8 PWR_STATE;
 extern u8 WorkMode;
 extern u8 PowerState, LastPowerState;
-
+extern PID_TypeDef HeatPID;
+extern PID_TypeDef MotorPID;
+extern PID_TypeDef MotorPID_speed;
+uart_data uart_RX_data;                                                              // DMA空闲接收数组
+uart_data received_data;                                                             // 环形数组取出，数组地址
+ring_buffer_t uart_rx_ring_buffer = {.head = 0, .tail = 0, .size = UART_QUEUE_SIZE}; // 定义环形数组
 int a;
 // extern u8 USART1_RX_STA;
 /*
 
-1:正在充电
-2:充电已满
-3:�?充电。电量充�?
-3:�?充电量充�?
+1:
+2:
+3:
+3:
 */
 extern u8 Flag_3200ms, Flag_800ms, Flag_600ms, Flag_400ms, Flag_200ms, Flag_100ms;
-
 extern u8 BQ25895Reg[21];
 
 extern BQ27441_typedef BQ27441;
@@ -113,7 +117,6 @@ int main(void)
     /* MCU Configuration--------------------------------------------------------*/
 
     /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-
     HAL_Init();
 
     /* USER CODE BEGIN Init */
@@ -147,32 +150,46 @@ int main(void)
     AT24CXX_Init();
     BQ27441_Init();
     BQ25895_Init();
-    HeatPIDInit();
+    // HeatPIDInit();
+    PID_Init(&HeatPID, 30, 0, 0, 100, 0, 255, 0, 42.5);
+    PID_Init(&MotorPID_speed, 0.035, 0, 0, 1000, -1000, (float)(50000), (float)(-50000), (float)ForceRawSet); // 0.03,0.05//0.02, 0.01, 0.02,
+    // PID_Init(&MotorPID, 1.8, 0, 0, 1000, -1000, (float)(150000), (float)(0), (float)ForceRawSetAct);
     HeatPower(ON);
     //	HeatPWMSet(50);
     PWM_WS2812B_Init();
     PWM_WS2812B_Show(5);
-    ScreenUpdateSOC(BQ27441.SOC, PowerState); // 电量上传
+    ScreenUpdateSOC(BQ27441.SOC, PowerState);
     PowerState = 3;
     PWM_WS2812B_Write_24Bits(5, 0x0000ff);
     PWR_STATE = 1;
-    TMC5130_Init();  // 初�?�化tmc
-    MotorChecking(); // 电机�?检
+    TMC5130_Init();
+    MotorChecking();
     HX711_Init();
     HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&ADC_VALUE, 3);
-
-    /* USER CODE END 2 */
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart_RX_data.buffer, sizeof(uart_RX_data.buffer)); // To open the DMA serial port free to receive, you need to configure the priority of the data processing function, or use the ring array directly
+                                                                                             /* USER CODE END 2 */
 
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
     while (1) {
-        if (PowerState == 10) // 读取iic状态，检测是否在�?�?
-        {
+        // HAL_GPIO_WritePin(GPIOC, GPIO_PIN_6, GPIO_PIN_SET);
+        // HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_SET);
+        if (ring_buffer_get(&uart_rx_ring_buffer, &received_data) == 0) {
+            // 处理接收到的数据
+            if ((received_data.buffer[0] == 0x5A) && (received_data.buffer[1] == 0xA5)) {
+                UART1_CMDHandler((PCTRL_MSG)received_data.buffer);
+            }
+            if ((received_data.buffer[0] == 0x7A) && (received_data.buffer[1] == 0xA7)) {//updata pid
+                PCTRL_MSG_PID pid_data = (CTRL_MSG_PID *)received_data.buffer;//force Conversion receiving frame
+                PID_Init(&MotorPID_speed, pid_data->p, pid_data->i, pid_data->d, 1000, -1000, (float)(50000), (float)(-50000), (float)ForceRawSet); // 0.03,0.05//0.02, 0.01, 0.02,
+            }
+        }
+        if (PowerState == 10) {
             if (Flag_800ms) {
-                BQ25895_MultiRead(BQ25895Reg); // 获取充电�?片状�?
-                PowerStateUpdate();            // 电源状态更�?
-                LEDUpdate();                   // LED状态更�?
-                BQ27441_MultiRead(&BQ27441);   // 获取电量计数�?
+                BQ25895_MultiRead(BQ25895Reg);
+                PowerStateUpdate();
+                LEDUpdate();
+                BQ27441_MultiRead(&BQ27441);
                 BATCheckDIS();
                 Flag_800ms = 0;
             }
@@ -181,14 +198,13 @@ int main(void)
             HAL_ADC_Stop_DMA(&hadc1);
             PWM_WS2812B_Write_24Bits(5, 0x000000);
             SystemPowerDown();
-            // HAL_GPIO_WritePin(GPIOA,GPIO_PIN_10,RESET);//屏幕休眠
         }
         // else if (PowerState == 1) // iic confirms that type_c is  not charging
         // {
-        // a++; // HAL_GPIO_WritePin(GPIOA,GPIO_PIN_1,RESET);//屏幕复原
+        // a++; // HAL_GPIO_WritePin(GPIOA,GPIO_PIN_1,RESET);//灞忓箷澶嶅師
         LEDUpdate();
         // HAL_Delay(20);
-        // ScreenUpdateSOC(BQ27441.SOC, PowerState); // 电量上传
+        // ScreenUpdateSOC(BQ27441.SOC, PowerState); // 鐢甸噺涓婁紶
         SW_CMDHandler();
         TaskProcessing();
         if (USART1_RX_STA == 1) {
@@ -196,29 +212,28 @@ int main(void)
             USART1_RX_STA = 0;
         }
         if (Flag_3200ms) {
-            ScreenUpdateSOC(BQ27441.SOC, PowerState); // 电量上传
+            ScreenUpdateSOC(BQ27441.SOC, PowerState); 
             Flag_3200ms = 0;
         }
         if (Flag_800ms) {
-            BQ25895_MultiRead(BQ25895Reg); // 获取充电�?片状�?
-            PowerStateUpdate();            // 电源状态更�?
-            LEDUpdate();                   // LED状态更�?
-            BQ27441_MultiRead(&BQ27441);   // 获取电量计数�?
+            BQ25895_MultiRead(BQ25895Reg); // 
+            PowerStateUpdate();            // 
+            LEDUpdate();                   // 
+            BQ27441_MultiRead(&BQ27441);   // 
             BATCheckDIS();
             Flag_800ms = 0;
         }
         if (Flag_600ms) {
 
-            if (((WorkMode == 5) || (WorkMode == 1) || (WorkMode == 3)|| (WorkMode == 7)) && (Flag_100ms_Toggle == 0)) { //&& Flag_100ms_Toggle == 0
+            if (((WorkMode == 5) || (WorkMode == 1) || (WorkMode == 3) || (WorkMode == 7)) && (Flag_100ms_Toggle == 0)) { //&& Flag_100ms_Toggle == 0
                 ScreenUpdateTemperature(EyeTmp);
             }
             if ((((WorkMode & 0x06) == 0x06) || ((WorkMode & 0x07) == 0x07)) && (Flag_100ms_Toggle == 1)) { // && Flag_100ms_Toggle == 1
                 ForceRawSetAct_temp = (ForceRawActual - ForceRawOffset < 0) ? 0 : (ForceRawActual - ForceRawOffset);
-                // ForceRawSetAct_temp2 = (ForceRawSetAct - 37572 < 0) ? 0 : (ForceRawSetAct - 37572);
-                 Limit(ForceRawSetAct_temp, 0, ForceRawSetAct_temp);
+                Limit(ForceRawSetAct_temp, 0, ForceRawSetAct_temp);
                 ScreenUpdateForce(ForceRawSetAct_temp);
 
-                HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6);
+                // HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_6);LED0
             }
             Flag_100ms_Toggle = !Flag_100ms_Toggle;
             Flag_600ms        = 0;
